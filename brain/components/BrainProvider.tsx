@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { generateOutput } from "@/lib/output";
-import { createMemoryCard, createMemoryIntent, createMemoryManual, guessMemoryIntent, type IntentInput } from "@/lib/memory";
+import { createMemoryCard, createMemoryIntent, createMemoryManual, guessMemoryIntent, type IntentInput, upsertTopicPages } from "@/lib/memory";
 import { scoreItem } from "@/lib/scoring";
 import { clearBrainState, createInitialState, loadBrainState, rawItems, saveBrainState } from "@/lib/storage";
 import type { BrainState, Decision, GeneratedOutput, ItemScore, OutputType, RawItem, UserProfile } from "@/lib/types";
@@ -16,6 +16,7 @@ type BrainContextValue = {
   feedItems: RawItem[];
   saveProfile: (profile: UserProfile) => void;
   rememberItem: (itemId: string, intent?: IntentInput) => void;
+  skipItem: (itemId: string) => void;
   resetDemo: () => void;
   getItem: (itemId: string) => RawItem | undefined;
   getScore: (itemId: string) => ItemScore | undefined;
@@ -57,7 +58,7 @@ export function BrainProvider({ children }: { children: React.ReactNode }) {
 
   const feedItems = useMemo(() => {
     return [...items]
-      .filter((item) => decisionMap.get(item.id)?.decision !== "remembered")
+      .filter((item) => !decisionMap.get(item.id))
       .sort((first, second) => itemTime(second) - itemTime(first));
   }, [decisionMap, items]);
 
@@ -94,16 +95,36 @@ export function BrainProvider({ children }: { children: React.ReactNode }) {
     const memoriesWithoutOld = state.memories.filter((candidate) => candidate.item_id !== itemId);
     const newMemories = [...memoriesWithoutOld, memory];
     const manualsWithoutOld = state.manuals.filter((candidate) => !oldMemoryIds.includes(candidate.memory_id));
+    const topicsWithoutOldMemory = state.topics.map((topic) => ({
+      ...topic,
+      supporting_memory_ids: topic.supporting_memory_ids.filter((memoryId) => !oldMemoryIds.includes(memoryId))
+    }));
     const nextState: BrainState = {
       ...state,
       decisions: upsertDecision(state.decisions, decision),
       intents: [...state.intents.filter((candidate) => candidate.item_id !== itemId), intent],
       memories: newMemories,
       manuals: [...manualsWithoutOld, manual],
-      topics: state.topics
+      topics: upsertTopicPages(topicsWithoutOldMemory, newMemories, memory)
     };
 
     commit(nextState);
+  }
+
+  function skipItem(itemId: string) {
+    const existingDecision = state.decisions.find((decision) => decision.item_id === itemId);
+    const decision: Decision = {
+      id: existingDecision?.id ?? makeId("decision"),
+      item_id: itemId,
+      profile_id: state.profile.id,
+      decision: "skipped",
+      created_at: existingDecision?.created_at ?? nowIso()
+    };
+
+    commit({
+      ...state,
+      decisions: upsertDecision(state.decisions, decision)
+    });
   }
 
   function resetDemo() {
@@ -138,6 +159,7 @@ export function BrainProvider({ children }: { children: React.ReactNode }) {
       feedItems,
       saveProfile,
       rememberItem,
+      skipItem,
       resetDemo,
       getItem,
       getScore,

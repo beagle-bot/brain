@@ -1,54 +1,53 @@
-import type { ItemScore, MemoryCard, MemoryIntent, MemoryManual, MemoryType, RawItem, TopicPage, UserProfile } from "@/lib/types";
+import type { ItemScore, MemoryCard, MemoryEmotion, MemoryIntent, MemoryManual, MemoryTopic, MemoryType, RawItem, TopicPage, UserProfile, UserRating } from "@/lib/types";
 import { memoryCardMarkdown, topicPageMarkdown } from "@/lib/markdown";
 import { formatList, makeId, nowIso, uniqueList } from "@/lib/utils";
 
-export const emotionTagOptions = [
-  "惊艳 / fancy",
-  "有启发",
-  "想试试",
-  "不认同",
-  "困惑",
-  "焦虑 / FOMO",
-  "被说服",
-  "觉得危险",
-  "以后可能有用",
-  "只是觉得新鲜"
+export const memoryTopicOptions: MemoryTopic[] = [
+  "Vibe Coding",
+  "商业模式",
+  "审美风格",
+  "技术突破",
+  "交互范式",
+  "增长方式",
+  "工作流改造",
+  "趋势信号"
 ];
 
-export const intentValueTagOptions = [
-  "新交互方式",
-  "新产品路线",
-  "新商业模式",
-  "新技术路径",
-  "新工作流",
-  "开源工具",
-  "竞品观察",
-  "趋势信号",
-  "案例证据",
-  "反方观点",
-  "概念解释",
-  "方法论",
-  "可立即实践",
-  "长期知识",
-  "低优先级收藏"
-];
+export const memoryEmotionOptions: MemoryEmotion[] = ["惊艳", "共鸣", "困惑", "怀疑"];
 
-export const useCaseTagOptions = [
-  "用于 brain",
-  "用于 AI HOT",
-  "用于文章",
-  "用于产品判断",
-  "用于项目 backlog",
-  "用于学习复盘",
-  "用于技术选型",
-  "用于决策备忘录",
-  "用于以后问 AI",
-  "只是收藏"
-];
+export const ratingDescriptions: Record<UserRating, string> = {
+  1: "随手收藏，价值不确定",
+  2: "有点意思，未来可能用到",
+  3: "有明确参考价值",
+  4: "强相关，值得沉淀",
+  5: "非常重要，改变判断 / 可直接用于输出"
+};
 
-export type IntentInput = Pick<MemoryIntent, "emotion_tags" | "value_tags" | "use_case_tags"> & {
+export type IntentInput = Pick<MemoryIntent, "user_rating" | "topic"> & {
+  emotion?: MemoryEmotion;
   user_note?: string;
 };
+
+function isUserRating(value: unknown): value is UserRating {
+  return typeof value === "number" && [1, 2, 3, 4, 5].includes(value);
+}
+
+function isMemoryTopic(value: unknown): value is MemoryTopic {
+  return typeof value === "string" && memoryTopicOptions.includes(value as MemoryTopic);
+}
+
+function isMemoryEmotion(value: unknown): value is MemoryEmotion {
+  return typeof value === "string" && memoryEmotionOptions.includes(value as MemoryEmotion);
+}
+
+export function normalizeIntentInput(input?: Partial<IntentInput> | null): IntentInput {
+  return {
+    user_rating: isUserRating(input?.user_rating) ? input.user_rating : 3,
+    topic: isMemoryTopic(input?.topic) ? input.topic : "Vibe Coding",
+    emotion: isMemoryEmotion(input?.emotion) ? input.emotion : undefined,
+    user_note: input?.user_note?.trim() || undefined
+  };
+}
 
 function itemText(item: RawItem) {
   return `${item.title} ${item.raw_summary} ${item.raw_content ?? ""} ${item.raw_tags.join(" ")}`;
@@ -101,86 +100,97 @@ function relatedTopics(item: RawItem) {
   return uniqueList(matched).slice(0, 4);
 }
 
+function inferIntentTopic(item: RawItem, score: ItemScore, profile: UserProfile): MemoryTopic {
+  const text = `${itemText(item)} ${score.value_tags.join(" ")} ${profile.current_projects.join(" ")}`.toLowerCase();
+
+  if (text.includes("vibe") || text.includes("ai coding") || text.includes("backlog") || text.includes("cursor")) return "Vibe Coding";
+  if (text.includes("商业") || text.includes("business") || text.includes("增长") || text.includes("pricing") || text.includes("订阅")) return "商业模式";
+  if (text.includes("审美") || text.includes("设计") || text.includes("pwa") || text.includes("界面") || text.includes("style")) return "审美风格";
+  if (text.includes("rag") || text.includes("llm wiki") || text.includes("模型") || text.includes("技术") || text.includes("向量")) return "技术突破";
+  if (text.includes("交互") || text.includes("workflow") || text.includes("agent") || text.includes("节点")) return "交互范式";
+  if (text.includes("传播") || text.includes("获客") || text.includes("增长") || text.includes("社区")) return "增长方式";
+  if (text.includes("工作流") || text.includes("自动") || text.includes("流程") || text.includes("低代码")) return "工作流改造";
+  if (text.includes("趋势") || text.includes("信号") || text.includes("未来") || text.includes("行业")) return "趋势信号";
+
+  if (score.actionability >= 75) return "工作流改造";
+  if (score.novelty >= 75) return "趋势信号";
+  return "Vibe Coding";
+}
+
+function inferEmotion(score: ItemScore): MemoryEmotion | undefined {
+  if (score.relevance_score >= 88 || score.novelty >= 82) return "惊艳";
+  if (score.role_fit >= 78 || score.goal_fit >= 78) return "共鸣";
+  if (score.reading_cost === "high") return "困惑";
+  if (score.noise_penalty >= 35) return "怀疑";
+  return undefined;
+}
+
+function ratingLabel(rating: UserRating) {
+  return `${rating} 星有用性`;
+}
+
 export function guessMemoryIntent(item: RawItem, score: ItemScore, profile: UserProfile): IntentInput & { ai_guess_reason: string } {
-  const emotion_tags =
-    score.relevance_score >= 86
-      ? ["有启发", "想试试"]
-      : score.noise_penalty > 35
-        ? ["以后可能有用", "不认同"]
-        : ["以后可能有用"];
-
-  const value_tags = uniqueList([
-    ...score.value_tags
-      .map((tag) => {
-        if (tag === "产品灵感") return "新产品路线";
-        if (tag === "工具试用") return "开源工具";
-        if (tag === "写作素材") return "案例证据";
-        if (tag === "可立即行动") return "可立即实践";
-        return tag;
-      })
-      .filter((tag) => intentValueTagOptions.includes(tag)),
-    score.reusability >= 72 ? "长期知识" : "",
-    item.raw_tags.includes("方法论") ? "方法论" : ""
-  ]).slice(0, 4);
-
   const projectUses = relatedProjects(item, profile);
-  const use_case_tags = uniqueList([
-    projectUses.includes("brain") ? "用于 brain" : "",
-    score.value_tags.includes("项目 backlog") ? "用于项目 backlog" : "",
-    score.value_tags.includes("决策证据") || score.value_tags.includes("产品灵感") ? "用于产品判断" : "",
-    score.value_tags.includes("写作素材") ? "用于文章" : "",
-    score.reading_cost === "high" ? "用于学习复盘" : ""
-  ]).filter((tag) => useCaseTagOptions.includes(tag));
+  const topic = inferIntentTopic(item, score, profile);
 
   return {
-    emotion_tags,
-    value_tags: value_tags.length ? value_tags : ["长期知识"],
-    use_case_tags: use_case_tags.length ? use_case_tags : ["用于以后问 AI"],
-    ai_guess_reason: `这条内容可能会服务 ${formatList(projectUses)}，并补充 ${formatList(relatedTopics(item))} 的判断。`
+    user_rating: 3,
+    topic,
+    emotion: inferEmotion(score),
+    ai_guess_reason: `这条内容可能会服务 ${formatList(projectUses)}，并补充「${topic}」相关判断。`
   };
 }
 
 export function createMemoryIntent(item: RawItem, decisionId: string, input: IntentInput, aiGuessReason?: string): MemoryIntent {
+  const normalized = normalizeIntentInput(input);
+  const now = nowIso();
+
   return {
     id: makeId("intent"),
     item_id: item.id,
     decision_id: decisionId,
-    emotion_tags: uniqueList(input.emotion_tags),
-    value_tags: uniqueList(input.value_tags),
-    use_case_tags: uniqueList(input.use_case_tags),
-    user_note: input.user_note?.trim() || undefined,
+    user_rating: normalized.user_rating,
+    topic: normalized.topic,
+    emotion: normalized.emotion,
+    user_note: normalized.user_note,
     ai_guess_reason: aiGuessReason,
-    created_at: nowIso()
+    created_at: now,
+    updated_at: now
   };
 }
 
 export function createMemoryCard(item: RawItem, score: ItemScore, profile: UserProfile, intent: MemoryIntent): MemoryCard {
   const projects = relatedProjects(item, profile);
-  const topics = relatedTopics(item);
+  const topics = uniqueList([intent.topic, ...relatedTopics(item)]).slice(0, 4);
   const memoryType = inferMemoryType(item, score);
   const title = item.title.replace(/^长文：/, "");
   const now = nowIso();
+  const ratingText = ratingDescriptions[intent.user_rating];
 
   const memory: MemoryCard = {
     id: makeId("memory"),
     item_id: item.id,
     intent_id: intent.id,
     title,
-    one_sentence_value: `${item.raw_summary} 对你当前的价值在于：它能补充 ${formatList(topics.slice(0, 2))} 的判断。`,
+    user_rating: intent.user_rating,
+    topic: intent.topic,
+    emotion: intent.emotion,
+    user_note: intent.user_note,
+    one_sentence_value: `${item.raw_summary} 你把它归入「${intent.topic}」，当前有用性为 ${intent.user_rating} 星：${ratingText}。`,
     why_i_saved_it:
       intent.user_note ||
-      `${score.recommendation_reason} 你选择记住它，是因为它可能服务 ${formatList(intent.use_case_tags)}，而不只是成为一个链接收藏。`,
+      `${score.recommendation_reason} 你选择记住它，是因为它对「${intent.topic}」有 ${intent.user_rating} 星参考价值。`,
     core_insights: uniqueList([
       item.raw_summary,
       `${score.action_suggestion}`,
-      `它的复用价值来自 ${formatList(score.value_tags)}，阅读成本为 ${score.reading_cost}。`
+      `收藏主题是「${intent.topic}」，有用性为 ${intent.user_rating} 星，阅读成本为 ${score.reading_cost}。`
     ]),
     memory_type: memoryType,
-    emotion_tags: intent.emotion_tags,
-    value_tags: intent.value_tags,
-    use_case_tags: intent.use_case_tags,
+    emotion_tags: intent.emotion ? [intent.emotion] : [],
+    value_tags: [intent.topic],
+    use_case_tags: [ratingLabel(intent.user_rating)],
     reusable_scenarios: uniqueList([
-      `写 ${topics[0] ?? "AI 产品判断"} 相关内容时作为素材`,
+      `写「${intent.topic}」相关内容时作为素材`,
       `判断 ${projects[0] ?? "当前项目"} 的下一步功能优先级`,
       "和 AI 对话时作为个人偏好与上下文证据"
     ]),
@@ -244,12 +254,12 @@ export function upsertTopicPages(existingTopics: TopicPage[], allMemories: Memor
     const topic: TopicPage = {
       id: current?.id ?? makeId("topic"),
       topic_name: topicName,
-      current_judgment: `当前判断：${topicName} 的价值不在于保存更多信息，而在于把用户主动选择过的信息持续编译成可复用判断。最近新增的「${newMemory.title}」强化了这一点。`,
+      current_judgment: `当前判断：${topicName} 的价值不在于保存更多信息，而在于把用户主动选择过的信息持续编译成可复用判断。最近新增的「${newMemory.title}」被评为 ${newMemory.user_rating} 星，强化了这一点。`,
       key_points: keyPoints,
       supporting_memory_ids: topicMemories,
       open_questions: uniqueList([
         ...(current?.open_questions ?? []),
-        `这个主题下一步能否转化为 ${formatList(newMemory.use_case_tags)}？`,
+        `这个主题下一步能否转化为更高有用性的判断或输出？`,
         "是否需要更多反例来避免只收藏同温层信息？"
       ]).slice(-5),
       markdown_content: "",

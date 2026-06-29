@@ -1,5 +1,4 @@
 import type { ItemScore, MemoryCard, MemoryIntent, MemoryManual, RawItem, TopicPage } from "@/lib/types";
-import { formatList } from "@/lib/utils";
 
 export function memoryCardMarkdown(memory: MemoryCard, item: RawItem, score: ItemScore, intent: MemoryIntent) {
   return `---
@@ -7,9 +6,9 @@ source: ${item.source}
 status: remembered
 memory_type: ${memory.memory_type}
 relevance_score: ${score.relevance_score}
-emotion_tags: ${memory.emotion_tags.join(", ")}
-value_tags: ${memory.value_tags.join(", ")}
-use_case_tags: ${memory.use_case_tags.join(", ")}
+user_rating: ${memory.user_rating}
+topic: ${memory.topic}
+emotion: ${memory.emotion ?? "未选择"}
 related_projects: ${memory.related_projects.join(", ")}
 related_topics: ${memory.related_topics.join(", ")}
 created: ${memory.created_at}
@@ -28,17 +27,17 @@ ${memory.why_i_saved_it}
 
 ## 我的收藏意图
 
-### 情绪反应
+### 有用性
 
-${formatList(intent.emotion_tags)}
+${intent.user_rating} 星
 
-### 价值判断
+### 主题
 
-${formatList(intent.value_tags)}
+${intent.topic}
 
-### 未来用途
+### 情绪
 
-${formatList(intent.use_case_tags)}
+${intent.emotion ?? "未选择"}
 
 ### 我的备注
 

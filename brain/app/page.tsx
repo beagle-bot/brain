@@ -26,7 +26,7 @@ function formatTimeLabel(date: Date) {
 }
 
 export default function FeedPage() {
-  const { feedItems, getScore, rememberItem, resetDemo } = useBrain();
+  const { feedItems, getScore, rememberItem, resetDemo, skipItem } = useBrain();
   const [pendingItemId, setPendingItemId] = useState<string | undefined>();
   const pendingItem = feedItems.find((item) => item.id === pendingItemId);
   const pendingScore = pendingItem ? getScore(pendingItem.id) : undefined;
@@ -81,6 +81,7 @@ export default function FeedPage() {
                 <ItemCard
                   item={item}
                   onRemember={() => setPendingItemId(item.id)}
+                  onSkip={() => skipItem(item.id)}
                 />
               </div>
             </div>

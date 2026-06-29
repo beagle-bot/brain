@@ -2,7 +2,21 @@ export type SourceName = "AI HOT" | "RSS" | "Manual";
 
 export type ReadingCost = "low" | "medium" | "high";
 
-export type DecisionType = "remembered";
+export type DecisionType = "remembered" | "skipped";
+
+export type UserRating = 1 | 2 | 3 | 4 | 5;
+
+export type MemoryTopic =
+  | "Vibe Coding"
+  | "商业模式"
+  | "审美风格"
+  | "技术突破"
+  | "交互范式"
+  | "增长方式"
+  | "工作流改造"
+  | "趋势信号";
+
+export type MemoryEmotion = "惊艳" | "共鸣" | "困惑" | "怀疑";
 
 export type MemoryType =
   | "观点"
@@ -85,12 +99,13 @@ export type MemoryIntent = {
   item_id: string;
   decision_id: string;
   memory_id?: string;
-  emotion_tags: string[];
-  value_tags: string[];
-  use_case_tags: string[];
+  user_rating: UserRating;
+  topic: MemoryTopic;
+  emotion?: MemoryEmotion;
   user_note?: string;
   ai_guess_reason?: string;
   created_at: string;
+  updated_at: string;
 };
 
 export type MemoryCard = {
@@ -98,6 +113,10 @@ export type MemoryCard = {
   item_id: string;
   intent_id?: string;
   title: string;
+  user_rating: UserRating;
+  topic: MemoryTopic;
+  emotion?: MemoryEmotion;
+  user_note?: string;
   one_sentence_value: string;
   why_i_saved_it: string;
   core_insights: string[];

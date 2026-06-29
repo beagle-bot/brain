@@ -8,7 +8,7 @@ function sectionFromMemories(memories: MemoryCard[]) {
     return "- 信息不足：还没有记住任何内容。先在首页记住 2-3 条高相关内容，再生成会更有用。";
   }
 
-  return memories.map((memory) => `- **${memory.title}**：${memory.one_sentence_value}`).join("\n");
+  return memories.map((memory) => `- **${memory.title}**（${memory.topic} · ${memory.user_rating} 星）：${memory.one_sentence_value}`).join("\n");
 }
 
 function bodyByType(type: OutputType, memories: MemoryCard[]) {
