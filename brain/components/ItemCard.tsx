@@ -10,41 +10,54 @@ type ItemCardProps = {
 };
 
 export function ItemCard({ item, onRemember }: ItemCardProps) {
+  const sourceName = item.author ?? item.source;
+  const sourceMark = sourceName.slice(0, 2).toUpperCase();
+
   return (
-    <article className="border border-line bg-white p-4 shadow-lift">
+    <article className="rounded-lg border border-zinc-200 bg-white p-4 shadow-[0_14px_34px_rgba(21,24,29,0.07)]">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-xs font-semibold uppercase tracking-normal text-zinc-400">
-            {item.source} {item.aihot_rank ? `#${item.aihot_rank}` : ""} {item.author ? `· ${item.author}` : ""}
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink text-[10px] font-semibold text-white">
+            {sourceMark}
           </div>
-          <h2 className="mt-2 text-xl font-semibold leading-7 text-ink">{item.title}</h2>
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold text-zinc-700">{sourceName}</div>
+            <div className="mt-0.5 text-xs text-zinc-400">{item.source}</div>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {item.aihot_rank ? (
+            <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 px-2 text-xs font-semibold text-zinc-500">
+              {item.aihot_rank}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            onClick={onRemember}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 shadow-sm"
+            title="记住"
+            aria-label="记住"
+          >
+            <BookmarkPlus className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <a
+            href={item.source_url}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 shadow-sm"
+            title="打开原文"
+            aria-label="打开原文"
+          >
+            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+          </a>
         </div>
       </div>
 
-      <p className="mt-4 text-sm leading-6 text-zinc-600">{item.raw_summary}</p>
+      <h2 className="mt-4 text-lg font-semibold leading-7 text-ink">{item.title}</h2>
+      <p className="feed-card-summary mt-3 text-sm leading-6 text-zinc-600">{item.raw_summary}</p>
 
       <div className="mt-4">
-        <ValueTags tags={item.raw_tags} />
-      </div>
-
-      <div className="mt-5 grid grid-cols-2 gap-2">
-        <button
-          type="button"
-          onClick={onRemember}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-mint px-3 text-sm font-semibold text-white"
-        >
-          <BookmarkPlus className="h-4 w-4" aria-hidden="true" />
-          记住
-        </button>
-        <a
-          href={item.source_url}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-line bg-zinc-50 px-3 text-sm font-semibold text-zinc-700"
-        >
-          <ExternalLink className="h-4 w-4" aria-hidden="true" />
-          原文
-        </a>
+        <ValueTags tags={item.raw_tags} limit={3} />
       </div>
     </article>
   );

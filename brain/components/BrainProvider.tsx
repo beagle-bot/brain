@@ -28,6 +28,11 @@ function upsertDecision(decisions: Decision[], decision: Decision) {
   return [...decisions.filter((item) => item.item_id !== decision.item_id), decision];
 }
 
+function itemTime(item: RawItem) {
+  const date = new Date(item.published_at ?? item.created_at);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
 export function BrainProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<BrainState>(() => createInitialState());
   const [items, setItems] = useState<RawItem[]>(rawItems);
@@ -51,7 +56,9 @@ export function BrainProvider({ children }: { children: React.ReactNode }) {
   const decisionMap = useMemo(() => new Map(state.decisions.map((decision) => [decision.item_id, decision])), [state.decisions]);
 
   const feedItems = useMemo(() => {
-    return items.filter((item) => decisionMap.get(item.id)?.decision !== "remembered");
+    return [...items]
+      .filter((item) => decisionMap.get(item.id)?.decision !== "remembered")
+      .sort((first, second) => itemTime(second) - itemTime(first));
   }, [decisionMap, items]);
 
   function commit(nextState: BrainState) {

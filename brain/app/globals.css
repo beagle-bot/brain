@@ -48,3 +48,10 @@ a {
 .thin-scrollbar {
   scrollbar-width: thin;
 }
+
+.feed-card-summary {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}

@@ -6,7 +6,7 @@ export function ValueTags({ tags, limit }: { tags: string[]; limit?: number }) {
   return (
     <div className="flex flex-wrap gap-2">
       {visible.map((tag) => (
-        <span key={tag} className="rounded-md border border-line bg-white px-2 py-1 text-xs font-medium text-zinc-600">
+        <span key={tag} className="rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-slate-500">
           {tag}
         </span>
       ))}
